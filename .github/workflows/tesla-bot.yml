@@ -1,0 +1,49 @@
+name: Tesla Model 3 RWD Bot
+
+on:
+  schedule:
+    # Ogni 15 minuti: legge subito eventuali comandi Telegram; il
+    # controllo vero e proprio dell'inventory Tesla scatta solo ogni
+    # CHECK_INTERVAL_SECONDS (1800 = 30 minuti), gestito dentro main.py.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}   # permette di avviarlo manualmente dal tab "Actions" per testare
+
+permissions:
+  contents: write   # necessario per poter salvare state.json nel repository
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scarica il codice del repository
+        uses: actions/checkout@v4
+
+      - name: Prepara Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installa le dipendenze
+        run: pip install -r requirements.txt
+
+      - name: Esegui il controllo
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EMAIL_ENABLED: ${{ secrets.EMAIL_ENABLED }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          CHECK_INTERVAL_SECONDS: "1800"
+        run: python main.py
+
+      - name: Salva lo stato aggiornato nel repository
+        run: |
+          git config user.name "tesla-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state.json
+          git diff --staged --quiet || git commit -m "Aggiorna stato bot"
+          git push
